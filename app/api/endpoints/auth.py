@@ -52,27 +52,33 @@ async def request_otp(
     session: AsyncSession = Depends(get_async_session),
 ) -> dict:
     """Request OTP for login. In production, OTP is sent via Telegram/Email."""
-    if body.username.strip().lower() != VALID_USER.lower():
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
+    try:
+        if body.username.strip().lower() != VALID_USER.lower():
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
 
-    otp = generate_otp()
-    otp_record = OTPSession(
-        user_identifier=body.username,
-        otp_hash=hash_otp(otp),
-        purpose="login",
-        expires_at=get_otp_expiry(),
-    )
-    session.add(otp_record)
-    await session.commit()
+        otp = generate_otp()
+        otp_record = OTPSession(
+            user_identifier=body.username,
+            otp_hash=hash_otp(otp),
+            purpose="login",
+            expires_at=get_otp_expiry(),
+        )
+        session.add(otp_record)
+        await session.commit()
 
-    # In dev mode, return OTP directly. In production, send via Telegram.
-    if settings.debug:
-        logger.warning("DEBUG MODE: OTP returned in response", otp=otp)
-        return {"message": "OTP generated (debug mode)", "otp": otp}
+        # In dev mode, return OTP directly. In production, send via Telegram.
+        if settings.debug:
+            logger.warning("DEBUG MODE: OTP returned in response", otp=otp)
+            return {"message": "OTP generated (debug mode)", "otp": otp}
 
-    # TODO: send OTP via Telegram or Email in production
-    logger.info("OTP generated for user", user=body.username)
-    return {"message": "OTP sent to registered contact"}
+        # TODO: send OTP via Telegram or Email in production
+        logger.info("OTP generated for user", user=body.username)
+        return {"message": "OTP sent to registered contact"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error in request_otp", error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
 
 @router.post("/verify-otp", response_model=TokenResponse)
