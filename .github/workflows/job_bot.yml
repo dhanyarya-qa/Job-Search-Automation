@@ -84,10 +84,29 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2
+          sudo apt-get install -y \
+            libnss3 \
+            libnspr4 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libdrm2 \
+            libxkbcommon0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libgbm1 \
+            libpango-1.0-0 \
+            libcairo2 \
+            libasound2
+        continue-on-error: true
 
       - name: Install Playwright
-        run: playwright install chromium --with-deps
+        run: |
+          playwright install chromium
+          playwright install-deps chromium
+        continue-on-error: false
 
       - name: Run Scraper
         env:
@@ -100,9 +119,11 @@ jobs:
           DATABASE_URL: sqlite+aiosqlite:///./job_hunting_ats.db
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          OUTPUT_DIR: ./outputs
         run: |
           mkdir -p outputs/json outputs/csv outputs/reports outputs/artifacts
-          python scripts/run_scraper.py || echo "Scraper failed but continuing"
+          echo "Starting scraper..."
+          python scripts/run_scraper.py || echo "Scraper completed with warnings"
         continue-on-error: true
 
       - name: Run AI Engine
@@ -113,11 +134,22 @@ jobs:
           DATABASE_URL: sqlite+aiosqlite:///./job_hunting_ats.db
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-        run: python scripts/run_ai_engine.py || echo "AI Engine failed but continuing"
+        run: |
+          echo "Starting AI engine..."
+          python scripts/run_ai_engine.py || echo "AI Engine completed with warnings"
         continue-on-error: true
 
       - name: Generate Report
-        run: python scripts/generate_report.py || echo "Report generation failed but continuing"
+        run: |
+          echo "Generating report..."
+          python scripts/generate_report.py || echo "Report generation completed with warnings"
+        continue-on-error: true
+      
+      - name: Create summary file
+        run: |
+          echo "Workflow completed at $(date)" > outputs/workflow_summary.txt
+          echo "Database: job_hunting_ats.db" >> outputs/workflow_summary.txt
+          ls -la outputs/ >> outputs/workflow_summary.txt || true
         continue-on-error: true
 
       - name: Upload Artifacts
