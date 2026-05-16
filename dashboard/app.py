@@ -62,6 +62,12 @@ st.markdown(
 
 
 # ─── Check Session ────────────────────────────────────────────────
+# Development mode: auto-login bypass
+if "access_token" not in st.session_state and os.getenv("DEBUG", "false").lower() == "true":
+    st.session_state["access_token"] = "dev_token"
+    st.session_state["refresh_token"] = "dev_refresh"
+    st.info("🔓 Development mode: Auto-logged in")
+
 if "access_token" not in st.session_state:
     st.markdown(
         """
