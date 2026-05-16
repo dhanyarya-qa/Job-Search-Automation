@@ -27,6 +27,8 @@ class Job(Base):
     salary: Mapped[str | None] = mapped_column(String(255))
     source_platform: Mapped[str] = mapped_column(String(100), nullable=False)
     job_url: Mapped[str] = mapped_column(String(2048), nullable=False, unique=True)
+    apply_link: Mapped[str | None] = mapped_column(String(2048))  # Direct apply link
+    apply_email: Mapped[str | None] = mapped_column(String(255))  # Contact email
     posted_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     tags: Mapped[str | None] = mapped_column(Text)  # JSON array stored as text
     requirements: Mapped[str | None] = mapped_column(Text)  # JSON array

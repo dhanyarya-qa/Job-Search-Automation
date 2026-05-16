@@ -20,6 +20,54 @@ class JobExtractor:
     """Extracts structured job data from HTML/page content."""
 
     @staticmethod
+    def extract_email(text: str) -> str | None:
+        """Extract email address from text."""
+        if not text:
+            return None
+        # Pattern untuk email
+        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        match = re.search(email_pattern, text)
+        if match:
+            return match.group(0)
+        return None
+
+    @staticmethod
+    def extract_apply_link(html_content: str, page_url: str) -> str | None:
+        """Extract apply link from HTML content."""
+        if not html_content:
+            return None
+        
+        soup = BeautifulSoup(html_content, "html.parser")
+        
+        # Cari button/link dengan text "apply", "lamar", "submit application"
+        apply_keywords = [
+            "apply now", "apply", "lamar", "submit application", 
+            "apply for this job", "quick apply", "easy apply"
+        ]
+        
+        for keyword in apply_keywords:
+            # Cari link dengan text yang mengandung keyword
+            link = soup.find("a", string=re.compile(keyword, re.IGNORECASE))
+            if link and link.get("href"):
+                href = link.get("href")
+                # Convert relative URL ke absolute URL
+                if href.startswith("/"):
+                    from urllib.parse import urlparse
+                    parsed = urlparse(page_url)
+                    return f"{parsed.scheme}://{parsed.netloc}{href}"
+                elif href.startswith("http"):
+                    return href
+        
+        # Fallback: cari button dengan class/id yang mengandung "apply"
+        apply_button = soup.find(["a", "button"], class_=re.compile("apply", re.IGNORECASE))
+        if apply_button and apply_button.get("href"):
+            href = apply_button.get("href")
+            if href.startswith("http"):
+                return href
+        
+        return None
+
+    @staticmethod
     def clean_text(text: str | None) -> str:
         if not text:
             return ""
@@ -81,12 +129,21 @@ class JobExtractor:
         posted_date: str = "",
         salary: str = "",
         html_content: str = "",
+        apply_link: str = "",
+        apply_email: str = "",
     ) -> dict:
         """Build a complete structured job dictionary."""
         tech_stack = self.detect_tech_stack(html_content, description)
         requirements = self.extract_requirements(description)
         salary = salary or self.extract_salary(description)
         scraped_at = datetime.now(tz=timezone.utc).isoformat()
+        
+        # Auto-extract email dan apply link jika tidak disediakan
+        if not apply_email:
+            apply_email = self.extract_email(description) or self.extract_email(html_content) or ""
+        
+        if not apply_link and html_content:
+            apply_link = self.extract_apply_link(html_content, job_url) or ""
 
         return {
             "job_title": self.clean_text(job_title),
@@ -97,6 +154,8 @@ class JobExtractor:
             "requirements": requirements,
             "tech_stack": tech_stack,
             "job_url": job_url.strip(),
+            "apply_link": apply_link.strip() if apply_link else "",
+            "apply_email": apply_email.strip() if apply_email else "",
             "posted_date": posted_date,
             "scraped_at": scraped_at,
             "source_platform": source_platform,
