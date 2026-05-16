@@ -63,6 +63,7 @@ async def request_otp(
         expires_at=get_otp_expiry(),
     )
     session.add(otp_record)
+    await session.commit()
 
     # In dev mode, return OTP directly. In production, send via Telegram.
     if settings.debug:
@@ -104,6 +105,8 @@ async def verify_otp_endpoint(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
 
     otp_record.is_used = True
+    await session.commit()
+    
     data = {"sub": body.username}
     return TokenResponse(
         access_token=create_access_token(data),
