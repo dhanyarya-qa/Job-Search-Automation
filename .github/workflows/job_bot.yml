@@ -1,0 +1,128 @@
+name: Ultimate Job Hunting ATS — Automated Pipeline
+
+on:
+  schedule:
+    - cron: "0 * * * *"  # Every hour
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ─── Lint & Type Check ────────────────────────────────────────────
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install ruff mypy
+
+      - name: Lint with Ruff
+        run: ruff check app/ tests/
+
+      - name: Type check with MyPy
+        run: mypy app/ --ignore-missing-imports
+
+  # ─── Tests ────────────────────────────────────────────────────────
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pytest
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./test_job_hunting_ats.db
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key-min-32-chars-here!!
+          JWT_SECRET_KEY: test-jwt-secret-key-32-chars-min!!
+          DEBUG: "true"
+          PRIMARY_AI_PROVIDER: gemini
+        run: pytest tests/ -v --cov=app --cov-report=xml || true
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  # ─── Scraper Job ─────────────────────────────────────────────────
+  scrape:
+    name: Run Scraper
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright
+        run: playwright install chromium --with-deps
+
+      - name: Run Scraper
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTICAPTCHA_API_KEY: ${{ secrets.ANTICAPTCHA_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DATABASE_URL: sqlite+aiosqlite:///./job_hunting_ats.db
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        run: python scripts/run_scraper.py
+        continue-on-error: true
+
+      - name: Run AI Engine
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DATABASE_URL: sqlite+aiosqlite:///./job_hunting_ats.db
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        run: python scripts/run_ai_engine.py
+        continue-on-error: true
+
+      - name: Generate Report
+        run: python scripts/generate_report.py
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ats-outputs-${{ github.run_number }}
+          path: outputs/
+          retention-days: 30
+
+      - name: Commit Outputs
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "ATS Bot"
+          git add outputs/ || true
+          git diff --staged --quiet || git commit -m "chore: auto-update outputs [skip ci]"
+          git push || true

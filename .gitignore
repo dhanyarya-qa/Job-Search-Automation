@@ -1,0 +1,100 @@
+# ============================================================
+# Ultimate Job Hunting ATS — .gitignore
+# ============================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+.env
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Outputs (runtime artifacts)
+outputs/json/*.json
+outputs/csv/*.csv
+outputs/reports/*.html
+outputs/reports/*.md
+outputs/artifacts/
+!outputs/.gitkeep
+!outputs/json/.gitkeep
+!outputs/csv/.gitkeep
+!outputs/reports/.gitkeep
+
+# Playwright
+playwright-report/
+test-results/
+
+# Database
+*.db
+*.sqlite3
+*.sqlite
+
+# Logs
+logs/
+*.log
+
+# Docker
+.docker/
+
+# Alembic
+alembic/versions/*.pyc
+
+# Secrets
+*.pem
+*.key
+*.crt
+secrets/
+
+# Temp
+tmp/
+temp/
+.tmp/
