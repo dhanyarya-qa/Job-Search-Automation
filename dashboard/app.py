@@ -73,12 +73,74 @@ if "access_token" not in st.session_state:
         """,
         unsafe_allow_html=True,
     )
-    st.warning("⚠️ Please login via the **Login** page in the sidebar.")
     
-    # Add prominent login button
-    st.markdown("### 🔐 Get Started")
-    st.info("👈 Click **'login'** in the sidebar to access the dashboard")
+    # Login form directly on home page
+    st.markdown("### 🔐 Login to Access Dashboard")
     
+    tab1, tab2 = st.tabs(["Request OTP", "Verify OTP"])
+    
+    with tab1:
+        st.info("Enter your name to receive an OTP code")
+        username = st.text_input("Username (your full name)", placeholder="Dhany Arya Pratama", key="home_username")
+        if st.button("🚀 Send OTP", type="primary", key="home_send_otp"):
+            if not username:
+                st.error("Please enter your username.")
+            else:
+                try:
+                    import httpx
+                    from app.config import settings
+                    API_URL = settings.fastapi_base_url
+                    
+                    resp = httpx.post(
+                        f"{API_URL}/api/v1/auth/login",
+                        json={"username": username},
+                        timeout=10,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        st.session_state["login_username"] = username
+                        st.success(f"✅ {data.get('message', 'OTP sent!')}")
+                        if "otp" in data:  # debug mode
+                            st.code(f"DEBUG OTP: {data['otp']}")
+                            st.info("👉 Copy the OTP code above and paste it in the 'Verify OTP' tab")
+                    else:
+                        st.error(f"Error: {resp.json().get('detail', 'Unknown error')}")
+                except Exception as e:
+                    st.error(f"Connection error: {e}")
+                    st.info("Make sure FastAPI backend is running on http://localhost:8000")
+    
+    with tab2:
+        st.info("Enter the OTP code you received")
+        user = st.text_input("Username", value=st.session_state.get("login_username", ""), key="home_verify_user")
+        otp_code = st.text_input("OTP Code", max_chars=6, placeholder="123456", key="home_otp_code")
+        if st.button("✅ Verify OTP", type="primary", key="home_verify_otp"):
+            if not user or not otp_code:
+                st.error("Please fill in both fields.")
+            else:
+                try:
+                    import httpx
+                    from app.config import settings
+                    API_URL = settings.fastapi_base_url
+                    
+                    resp = httpx.post(
+                        f"{API_URL}/api/v1/auth/verify-otp",
+                        json={"username": user, "otp_code": otp_code},
+                        timeout=10,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        st.session_state["access_token"] = data["access_token"]
+                        st.session_state["refresh_token"] = data["refresh_token"]
+                        st.success("🎉 Login successful! Reloading dashboard...")
+                        st.rerun()
+                    else:
+                        st.error(f"Error: {resp.json().get('detail', 'Invalid OTP')}")
+                except Exception as e:
+                    st.error(f"Connection error: {e}")
+    
+    st.divider()
+    
+    # Features list
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
