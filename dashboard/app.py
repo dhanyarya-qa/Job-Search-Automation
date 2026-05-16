@@ -88,7 +88,11 @@ if "access_token" not in st.session_state:
             else:
                 try:
                     import httpx
+                    import sys
+                    from pathlib import Path
+                    sys.path.insert(0, str(Path(__file__).parent.parent))
                     from app.config import settings
+                    
                     API_URL = settings.fastapi_base_url
                     
                     resp = httpx.post(
@@ -119,7 +123,11 @@ if "access_token" not in st.session_state:
             else:
                 try:
                     import httpx
+                    import sys
+                    from pathlib import Path
+                    sys.path.insert(0, str(Path(__file__).parent.parent))
                     from app.config import settings
+                    
                     API_URL = settings.fastapi_base_url
                     
                     resp = httpx.post(
