@@ -133,8 +133,9 @@ jobs:
 
       - name: Commit Outputs
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "ATS Bot"
-          git add outputs/ || true
-          git diff --staged --quiet || git commit -m "chore: auto-update outputs [skip ci]"
+          git config --global user.email "action@github.com"
+          git config --global user.name "ATS Bot"
+          git add outputs/ *.db || true
+          git diff --staged --quiet || git commit -m "chore: auto-update outputs [skip ci]" || true
           git push || true
+        continue-on-error: true
