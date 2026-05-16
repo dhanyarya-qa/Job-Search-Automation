@@ -87,34 +87,40 @@ async def verify_otp_endpoint(
     session: AsyncSession = Depends(get_async_session),
 ) -> TokenResponse:
     """Verify OTP and issue JWT tokens."""
-    from sqlalchemy import select  # noqa: PLC0415
+    try:
+        from sqlalchemy import select  # noqa: PLC0415
 
-    result = await session.execute(
-        select(OTPSession)
-        .where(
-            OTPSession.user_identifier == body.username,
-            OTPSession.is_used == False,  # noqa: E712
-            OTPSession.purpose == "login",
+        result = await session.execute(
+            select(OTPSession)
+            .where(
+                OTPSession.user_identifier == body.username,
+                OTPSession.is_used == False,  # noqa: E712
+                OTPSession.purpose == "login",
+            )
+            .order_by(OTPSession.created_at.desc())
+            .limit(1)
         )
-        .order_by(OTPSession.created_at.desc())
-        .limit(1)
-    )
-    otp_record = result.scalar_one_or_none()
+        otp_record = result.scalar_one_or_none()
 
-    if not otp_record:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No active OTP session")
+        if not otp_record:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No active OTP session")
 
-    if is_otp_expired(otp_record.expires_at):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP expired")
+        if is_otp_expired(otp_record.expires_at):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OTP expired")
 
-    if not verify_otp(body.otp_code, otp_record.otp_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
+        if not verify_otp(body.otp_code, otp_record.otp_hash):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP")
 
-    otp_record.is_used = True
-    await session.commit()
-    
-    data = {"sub": body.username}
-    return TokenResponse(
-        access_token=create_access_token(data),
-        refresh_token=create_refresh_token(data),
-    )
+        otp_record.is_used = True
+        await session.commit()
+        
+        data = {"sub": body.username}
+        return TokenResponse(
+            access_token=create_access_token(data),
+            refresh_token=create_refresh_token(data),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error in verify_otp", error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
