@@ -125,8 +125,11 @@ jobs:
         if: always()
         with:
           name: ats-outputs-${{ github.run_number }}
-          path: outputs/
+          path: |
+            outputs/
+            *.db
           retention-days: 30
+          if-no-files-found: warn
 
       - name: Commit Outputs
         run: |
