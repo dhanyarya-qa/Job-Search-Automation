@@ -25,13 +25,13 @@ def generate_otp(length: int = 6) -> str:
 
 
 def hash_otp(otp: str) -> str:
-    """Hash OTP for secure storage."""
-    return pwd_context.hash(otp)
+    """Hash OTP for secure storage using SHA256."""
+    return hashlib.sha256(otp.encode()).hexdigest()
 
 
 def verify_otp(plain_otp: str, hashed_otp: str) -> bool:
     """Verify an OTP against its hash."""
-    return pwd_context.verify(plain_otp, hashed_otp)
+    return hashlib.sha256(plain_otp.encode()).hexdigest() == hashed_otp
 
 
 def get_otp_expiry() -> datetime:
