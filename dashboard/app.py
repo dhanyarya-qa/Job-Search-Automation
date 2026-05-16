@@ -74,6 +74,22 @@ if "access_token" not in st.session_state:
         unsafe_allow_html=True,
     )
     st.warning("⚠️ Please login via the **Login** page in the sidebar.")
+    
+    # Add prominent login button
+    st.markdown("### 🔐 Get Started")
+    st.info("👈 Click **'login'** in the sidebar to access the dashboard")
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+        **Features:**
+        - 🔍 Browse scraped jobs
+        - 🤖 AI-powered job matching
+        - 📊 Score dashboard & analytics
+        - ✉️ Auto-generated cover letters
+        - 📱 Telegram notifications
+        """)
+    
     st.stop()
 
 
