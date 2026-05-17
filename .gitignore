@@ -170,3 +170,36 @@ yarn-error.log
 # *.avi
 # *.pdf
 # *.psd
+
+# ============================================================
+# Test & Development Files (tidak perlu di-push)
+# ============================================================
+
+# Test scripts yang tidak digunakan di production
+scripts/test_*.py
+scripts/get_*.py
+scripts/stamp_*.py
+
+# Documentation files yang tidak perlu (keep README.md)
+CLAUDE.md
+PERBAIKAN_ERROR.md
+FEATURES_IMPLEMENTED.md
+SETUP_COMPLETE.md
+TELEGRAM_CHANNEL_SETUP.md
+GITHUB_SETUP.md
+AI_ENGINE_SPEC.md
+CICD_SPEC.md
+DASHBOARD_SPEC.md
+DATABASE_SPEC.md
+SCRAPER_SPEC.md
+!README.md
+
+# Config files yang tidak digunakan
+config.yaml
+
+# Dashboard (jika tidak digunakan di production)
+dashboard/
+
+# Docker files (jika tidak digunakan)
+docker/
+docker-compose.yml
