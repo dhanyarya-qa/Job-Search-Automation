@@ -1,5 +1,5 @@
 # ============================================================
-# Ultimate Job Hunting ATS — .gitignore
+# Job Search Automation — .gitignore
 # ============================================================
 
 # Python
@@ -25,16 +25,20 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
 
 # Virtual Environment
 .venv/
 venv/
 ENV/
 env/
+
+# Environment Variables (IMPORTANT!)
 .env
 !.env.example
 
-# IDE
+# IDE & Editors
 .vscode/
 .idea/
 *.swp
@@ -42,6 +46,8 @@ env/
 *~
 .DS_Store
 Thumbs.db
+*.sublime-project
+*.sublime-workspace
 
 # Testing
 .pytest_cache/
@@ -52,49 +58,115 @@ htmlcov/
 coverage.xml
 *.cover
 *.py,cover
+.hypothesis/
 
 # Type checking
 .mypy_cache/
 .dmypy.json
 dmypy.json
+.pyre/
+.pytype/
 
 # Outputs (runtime artifacts)
-outputs/json/*.json
-outputs/csv/*.csv
-outputs/reports/*.html
-outputs/reports/*.md
-outputs/artifacts/
+outputs/
 !outputs/.gitkeep
 !outputs/json/.gitkeep
 !outputs/csv/.gitkeep
 !outputs/reports/.gitkeep
+!outputs/artifacts/.gitkeep
 
 # Playwright
 playwright-report/
 test-results/
+.playwright/
 
-# Database
+# Database (IMPORTANT - jangan upload database!)
 *.db
 *.sqlite3
 *.sqlite
+*.db-journal
+*.db-shm
+*.db-wal
 
 # Logs
 logs/
 *.log
+*.log.*
 
 # Docker
 .docker/
+docker-compose.override.yml
 
 # Alembic
-alembic/versions/*.pyc
+alembic/versions/__pycache__/
 
-# Secrets
+# Secrets & Credentials (IMPORTANT!)
 *.pem
 *.key
 *.crt
+*.p12
+*.pfx
 secrets/
+credentials/
+.secrets/
 
-# Temp
+# Temporary files
 tmp/
 temp/
 .tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Backup files
+*.backup
+*.old
+*.orig
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Node modules (jika ada frontend)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Large files (optional - uncomment jika perlu)
+# *.mp4
+# *.mov
+# *.avi
+# *.pdf
+# *.psd
