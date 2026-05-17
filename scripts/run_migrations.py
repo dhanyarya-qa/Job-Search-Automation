@@ -5,12 +5,18 @@ import os
 import sys
 from pathlib import Path
 
-# IMPORTANT: Set sync SQLite URL BEFORE importing anything
-os.environ['DATABASE_URL'] = 'sqlite:///./job_hunting_ats.db'
+# IMPORTANT: Set environment variables BEFORE importing anything
+# This ensures pydantic can validate settings properly
+os.environ.setdefault('DATABASE_URL', 'sqlite:///./job_hunting_ats.db')
+os.environ.setdefault('SECRET_KEY', 'migration-secret-key-min-32-chars-here!!')
+os.environ.setdefault('JWT_SECRET_KEY', 'migration-jwt-secret-key-32-chars-min!!')
+os.environ.setdefault('REDIS_URL', 'redis://localhost:6379/0')
+os.environ.setdefault('TELEGRAM_BOT_TOKEN', 'dummy')
+os.environ.setdefault('TELEGRAM_CHAT_ID', 'dummy')
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Now we can import after setting the env var
+# Now we can import after setting the env vars
 from alembic.config import Config
 from alembic import command
 
