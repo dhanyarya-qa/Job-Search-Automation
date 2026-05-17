@@ -1,6 +1,8 @@
 """
 Optimized Job Finder - Fast scraping with immediate Telegram notifications
-Scrapes one keyword at a time to avoid long waits
+Scrapes:
+1. LinkedIn Jobs (from job search)
+2. LinkedIn Posts (from feed/posts about jobs)
 """
 import asyncio
 import sys
@@ -10,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import structlog
 from app.scraper.local_scraper import LocalJobScraper
+from app.scraper.linkedin_post_scraper import LinkedInPostScraper
 from app.scraper.filters import JobFilter, DEFAULT_FILTER
 from app.notifications.telegram_notifier import TelegramNotifier
 from app.database.session import get_async_session
@@ -21,13 +24,18 @@ from datetime import datetime, timezone
 logger = structlog.get_logger(__name__)
 
 
-async def send_job_to_telegram(notifier: TelegramNotifier, job: dict) -> bool:
+async def send_job_to_telegram(notifier: TelegramNotifier, job: dict, is_from_post: bool = False) -> bool:
     """Send job notification to Telegram with apply info and buttons"""
     
     title = job.get("job_title", "Unknown Position")
     company = job.get("company_name", "Unknown Company")
     location = job.get("location", "Location not specified")
     platform = job.get("source_platform", "")
+    
+    # Add "Postingan" label if from LinkedIn post
+    if is_from_post:
+        platform = f"📮 Postingan - {platform}"
+    
     job_url = job.get("job_url", "")
     apply_email = job.get("apply_email", "")
     apply_link = job.get("apply_link", "")
@@ -59,7 +67,7 @@ async def send_job_to_telegram(notifier: TelegramNotifier, job: dict) -> bool:
             expires_at=expires_at,
         )
         if success:
-            logger.info("Job sent to Telegram", title=title[:30])
+            logger.info("Job sent to Telegram", title=title[:30], is_post=is_from_post)
         return success
     except Exception as e:
         logger.error("Failed to send to Telegram", error=str(e))
@@ -121,7 +129,8 @@ async def main():
     print("=" * 60)
     print()
     
-    scraper = LocalJobScraper()
+    job_scraper = LocalJobScraper()
+    post_scraper = LinkedInPostScraper()
     notifier = TelegramNotifier()
     job_filter = DEFAULT_FILTER
     
@@ -130,21 +139,27 @@ async def main():
     total_new = 0
     total_sent = 0
     
+    total_posts_found = 0
+    total_posts_filtered = 0
+    total_posts_new = 0
+    total_posts_sent = 0
+    
     # Get keywords from config
     keywords = JOB_KEYWORDS[:3]  # Limit to first 3 keywords for speed
     
     print(f"🔍 Searching for {len(keywords)} keywords...")
     print(f"Keywords: {', '.join(keywords)}")
+    print(f"Sources: LinkedIn Jobs + LinkedIn Posts")
     print()
     
     try:
         for keyword_idx, keyword in enumerate(keywords, 1):
             print(f"[{keyword_idx}/{len(keywords)}] Searching: {keyword}")
-            print(f"  Platforms: LinkedIn, Indeed")
+            print(f"  Platforms: LinkedIn Jobs, Indeed, LinkedIn Posts")
             
+            # ===== 1. SCRAPE LINKEDIN JOBS & INDEED =====
             try:
-                # Scrape this keyword from ALL platforms
-                jobs = await scraper.scrape(keyword)
+                jobs = await job_scraper.scrape(keyword)
                 total_found += len(jobs)
                 
                 # Count by platform
@@ -153,7 +168,7 @@ async def main():
                     platform = job.get("source_platform", "unknown")
                     platform_counts[platform] = platform_counts.get(platform, 0) + 1
                 
-                print(f"  Found {len(jobs)} jobs total:")
+                print(f"  📋 Jobs found: {len(jobs)}")
                 for platform, count in platform_counts.items():
                     print(f"    - {platform.title()}: {count}")
                 
@@ -162,85 +177,110 @@ async def main():
                 all_filtered = priority_jobs + filtered_jobs
                 total_filtered += len(all_filtered)
                 
-                print(f"  After filtering: {len(all_filtered)} jobs ({len(priority_jobs)} priority)")
+                print(f"  ✨ After filtering: {len(all_filtered)} jobs ({len(priority_jobs)} priority)")
                 
-                # Process priority jobs first
-                for job in priority_jobs:
+                # Send jobs to Telegram
+                for job in all_filtered:
                     job_url = job.get("job_url", "")
                     title = job.get("job_title", "Unknown")[:40]
                     
-                    # Check if already sent
                     if job_url and await is_job_already_sent(job_url):
-                        print(f"  ⏭️  Already sent: {title}")
+                        print(f"    ⏭️  Already sent: {title}")
                         continue
                     
                     total_new += 1
                     
-                    # Send to Telegram
-                    success = await send_job_to_telegram(notifier, job)
+                    success = await send_job_to_telegram(notifier, job, is_from_post=False)
                     
                     if success:
                         total_sent += 1
-                        print(f"  ⭐ Sent (Priority): {title}")
-                        
-                        # Save to database
+                        priority_mark = "⭐" if job.get("is_priority") else "✅"
+                        print(f"    {priority_mark} Sent: {title}")
                         await save_job_to_db_with_tracking(job)
-                        
-                        # Small delay to avoid rate limiting
                         await asyncio.sleep(1)
                     else:
-                        print(f"  ❌ Failed: {title}")
-                
-                # Process regular filtered jobs
-                for job in filtered_jobs:
-                    job_url = job.get("job_url", "")
-                    title = job.get("job_title", "Unknown")[:40]
-                    
-                    # Check if already sent
-                    if job_url and await is_job_already_sent(job_url):
-                        print(f"  ⏭️  Already sent: {title}")
-                        continue
-                    
-                    total_new += 1
-                    
-                    # Send to Telegram
-                    success = await send_job_to_telegram(notifier, job)
-                    
-                    if success:
-                        total_sent += 1
-                        print(f"  ✅ Sent: {title}")
-                        
-                        # Save to database
-                        await save_job_to_db_with_tracking(job)
-                        
-                        # Small delay to avoid rate limiting
-                        await asyncio.sleep(1)
-                    else:
-                        print(f"  ❌ Failed: {title}")
-                
-                print()
+                        print(f"    ❌ Failed: {title}")
                 
             except Exception as e:
-                logger.error("Keyword scrape failed", keyword=keyword, error=str(e))
-                print(f"  ❌ Error: {e}\n")
+                logger.error("Job scraping failed", keyword=keyword, error=str(e))
+                print(f"  ❌ Job scraping error: {e}")
+            
+            # ===== 2. SCRAPE LINKEDIN POSTS =====
+            try:
+                print(f"  📮 Searching LinkedIn posts...")
+                posts = await post_scraper.scrape(keyword)
+                total_posts_found += len(posts)
+                
+                print(f"  📮 Posts found: {len(posts)}")
+                
+                # Apply filters to posts
+                filtered_posts, priority_posts = job_filter.filter_jobs(posts)
+                all_filtered_posts = priority_posts + filtered_posts
+                total_posts_filtered += len(all_filtered_posts)
+                
+                print(f"  ✨ After filtering: {len(all_filtered_posts)} posts ({len(priority_posts)} priority)")
+                
+                # Send posts to Telegram
+                for post in all_filtered_posts:
+                    post_url = post.get("job_url", "")
+                    title = post.get("job_title", "Unknown")[:40]
+                    
+                    if post_url and await is_job_already_sent(post_url):
+                        print(f"    ⏭️  Already sent: {title}")
+                        continue
+                    
+                    total_posts_new += 1
+                    
+                    success = await send_job_to_telegram(notifier, post, is_from_post=True)
+                    
+                    if success:
+                        total_posts_sent += 1
+                        priority_mark = "⭐" if post.get("is_priority") else "📮"
+                        print(f"    {priority_mark} Sent (Post): {title}")
+                        await save_job_to_db_with_tracking(post)
+                        await asyncio.sleep(1)
+                    else:
+                        print(f"    ❌ Failed: {title}")
+                
+            except Exception as e:
+                logger.error("Post scraping failed", keyword=keyword, error=str(e))
+                print(f"  ❌ Post scraping error: {e}")
+            
+            print()
         
         print("=" * 60)
         print("📊 SUMMARY")
         print("=" * 60)
-        print(f"Total found: {total_found}")
-        print(f"After filters: {total_filtered}")
-        print(f"New jobs: {total_new}")
-        print(f"Sent to Telegram: {total_sent}")
+        print(f"📋 JOBS (LinkedIn + Indeed):")
+        print(f"  Total found: {total_found}")
+        print(f"  After filters: {total_filtered}")
+        print(f"  New jobs: {total_new}")
+        print(f"  Sent to Telegram: {total_sent}")
+        print()
+        print(f"📮 POSTS (LinkedIn Feed):")
+        print(f"  Total found: {total_posts_found}")
+        print(f"  After filters: {total_posts_filtered}")
+        print(f"  New posts: {total_posts_new}")
+        print(f"  Sent to Telegram: {total_posts_sent}")
+        print()
+        print(f"🎯 TOTAL SENT: {total_sent + total_posts_sent}")
         print("=" * 60)
         
         # Send summary to Telegram
-        if total_sent > 0:
+        if total_sent > 0 or total_posts_sent > 0:
             summary = (
                 f"✅ <b>Job Search Complete</b>\n\n"
-                f"🔍 Total found: {total_found}\n"
-                f"✨ After filters: {total_filtered}\n"
-                f"🆕 New jobs: {total_new}\n"
-                f"📱 Sent to Telegram: {total_sent}\n\n"
+                f"📋 <b>Jobs (LinkedIn + Indeed)</b>\n"
+                f"🔍 Found: {total_found}\n"
+                f"✨ Filtered: {total_filtered}\n"
+                f"🆕 New: {total_new}\n"
+                f"📱 Sent: {total_sent}\n\n"
+                f"📮 <b>Posts (LinkedIn Feed)</b>\n"
+                f"🔍 Found: {total_posts_found}\n"
+                f"✨ Filtered: {total_posts_filtered}\n"
+                f"🆕 New: {total_posts_new}\n"
+                f"📱 Sent: {total_posts_sent}\n\n"
+                f"🎯 <b>Total Sent: {total_sent + total_posts_sent}</b>\n"
                 f"Keywords: {', '.join(keywords)}"
             )
             await notifier.send_message(summary)
