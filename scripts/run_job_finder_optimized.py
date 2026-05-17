@@ -10,54 +10,42 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import structlog
 from app.scraper.local_scraper import LocalJobScraper
+from app.scraper.filters import JobFilter, DEFAULT_FILTER
 from app.notifications.telegram_notifier import TelegramNotifier
 from app.database.session import get_async_session
 from app.database.models.job import Job
 from sqlalchemy import select
 from app.scraper.constants import JOB_KEYWORDS
+from datetime import datetime, timezone
 
 logger = structlog.get_logger(__name__)
 
 
 async def send_job_to_telegram(notifier: TelegramNotifier, job: dict) -> bool:
-    """Send job notification to Telegram with apply info"""
+    """Send job notification to Telegram with apply info and buttons"""
     
     title = job.get("job_title", "Unknown Position")
     company = job.get("company_name", "Unknown Company")
     location = job.get("location", "Location not specified")
-    platform = job.get("source_platform", "").title()
+    platform = job.get("source_platform", "")
     job_url = job.get("job_url", "")
     apply_email = job.get("apply_email", "")
     apply_link = job.get("apply_link", "")
     salary = job.get("salary", "")
-    
-    # Build message
-    message = f"🎯 <b>New Job Found!</b>\n\n"
-    message += f"📋 <b>{title}</b>\n"
-    message += f"🏢 {company}\n"
-    message += f"📍 {location}\n"
-    
-    if salary:
-        message += f"💰 {salary}\n"
-    
-    message += f"🌐 Platform: {platform}\n\n"
-    
-    # Add apply information
-    message += "<b>📨 How to Apply:</b>\n"
-    
-    if apply_email:
-        message += f"✉️ Email: <code>{apply_email}</code>\n"
-    
-    if apply_link:
-        message += f"🔗 Apply: {apply_link}\n"
-    elif job_url:
-        message += f"🔗 Job Link: {job_url}\n"
-    
-    if not apply_email and not apply_link and not job_url:
-        message += "ℹ️ Check platform for application details\n"
+    is_priority = job.get("is_priority", False)
     
     try:
-        success = await notifier.send_message(message)
+        success = await notifier.send_job_notification(
+            job_title=title,
+            company_name=company,
+            location=location,
+            salary=salary,
+            job_url=job_url,
+            apply_email=apply_email,
+            apply_link=apply_link,
+            platform=platform,
+            is_priority=is_priority,
+        )
         if success:
             logger.info("Job sent to Telegram", title=title[:30])
         return success

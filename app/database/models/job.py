@@ -30,11 +30,18 @@ class Job(Base):
     apply_link: Mapped[str | None] = mapped_column(String(2048))  # Direct apply link
     apply_email: Mapped[str | None] = mapped_column(String(255))  # Contact email
     posted_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # Job expiry date
     tags: Mapped[str | None] = mapped_column(Text)  # JSON array stored as text
     requirements: Mapped[str | None] = mapped_column(Text)  # JSON array
     tech_stack: Mapped[str | None] = mapped_column(Text)  # JSON array
     job_category_prediction: Mapped[str | None] = mapped_column(String(100))
+    job_type: Mapped[str | None] = mapped_column(String(50))  # Full-time, Contract, etc
+    experience_level: Mapped[str | None] = mapped_column(String(50))  # Junior, Mid, Senior
+    is_remote: Mapped[bool] = mapped_column(default=False)
+    is_priority: Mapped[bool] = mapped_column(default=False)  # Priority company
     is_active: Mapped[bool] = mapped_column(default=True)
+    sent_to_telegram: Mapped[bool] = mapped_column(default=False)  # Track if sent
+    telegram_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
