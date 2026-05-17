@@ -2,9 +2,9 @@ name: Ultimate Job Hunting ATS — Automated Pipeline
 
 on:
   schedule:
-    - cron: "0 * * * *"  # Every hour - Job scraping
-    - cron: "0 9 * * *"  # Daily at 9 AM - Daily summary
-    - cron: "0 9,18 * * *"  # Twice daily at 9 AM and 6 PM - Expiry reminders
+    - cron: "0 * * * *"      # Every hour - Job scraping (24x per day)
+    - cron: "30 9 * * *"     # Daily at 9:30 AM - Daily summary (1x per day)
+    - cron: "0 10,18 * * *"  # At 10 AM and 6 PM - Expiry reminders (2x per day)
   push:
     branches: [main]
   workflow_dispatch:
@@ -120,7 +120,7 @@ jobs:
 
       - name: Send Daily Summary
         id: daily_summary
-        if: github.event.schedule == '0 9 * * *'
+        if: github.event.schedule == '30 9 * * *'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -132,7 +132,7 @@ jobs:
 
       - name: Check Expiring Jobs
         id: expiring_jobs
-        if: github.event.schedule == '0 9,18 * * *'
+        if: github.event.schedule == '0 10,18 * * *'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
