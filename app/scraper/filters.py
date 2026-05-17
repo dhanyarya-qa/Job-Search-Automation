@@ -164,10 +164,16 @@ class JobFilter:
 
 # Default filter configuration
 DEFAULT_FILTER = JobFilter(
-    locations=["jakarta", "remote", "hybrid", "indonesia"],
-    job_types=["full-time", "full time", "contract", "freelance"],
-    experience_levels=["junior", "mid", "senior", "staff"],
-    excluded_keywords=["intern", "magang", "unpaid"],
-    excluded_companies=[],  # Add companies to blacklist
-    priority_companies=["google", "tokopedia", "gojek", "shopee", "grab"],
+    # Relax location filter - accept any location
+    locations=[],  # Empty = accept all locations
+    # Relax job type filter - accept any type
+    job_types=[],  # Empty = accept all types
+    # Relax experience level filter - accept any level
+    experience_levels=[],  # Empty = accept all levels
+    # Only exclude obvious bad keywords
+    excluded_keywords=["intern", "magang", "unpaid", "volunteer"],
+    # No company blacklist
+    excluded_companies=[],
+    # Priority companies
+    priority_companies=["google", "tokopedia", "gojek", "shopee", "grab", "bukalapak", "traveloka", "blibli"],
 )
