@@ -79,7 +79,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run Scraper
+      - name: Run Job Finder (Scrape & Send to Telegram)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -93,21 +93,8 @@ jobs:
           OUTPUT_DIR: ./outputs
         run: |
           mkdir -p outputs/json outputs/csv outputs/reports outputs/artifacts
-          echo "Starting scraper..."
-          python scripts/run_scraper.py || echo "Scraper completed with warnings"
-        continue-on-error: true
-
-      - name: Run AI Engine
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          DATABASE_URL: sqlite+aiosqlite:///./job_hunting_ats.db
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-        run: |
-          echo "Starting AI engine..."
-          python scripts/run_ai_engine.py || echo "AI Engine completed with warnings"
+          echo "Starting job finder..."
+          python scripts/run_job_finder_optimized.py || echo "Job finder completed with warnings"
         continue-on-error: true
 
       - name: Generate Report
