@@ -8,17 +8,47 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator, CHAR
 
 from app.database.engine import Base
+
+
+class GUID(TypeDecorator):
+    """Platform-independent GUID type.
+    
+    Uses PostgreSQL's UUID type, otherwise uses CHAR(36), storing as stringified hex values.
+    """
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            from sqlalchemy.dialects.postgresql import UUID
+            return dialect.type_descriptor(UUID(as_uuid=True))
+        else:
+            return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'postgresql':
+            return value if isinstance(value, uuid.UUID) else uuid.UUID(value)
+        else:
+            return str(value) if isinstance(value, uuid.UUID) else value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        else:
+            return value if isinstance(value, uuid.UUID) else uuid.UUID(value)
 
 
 class Company(Base):
     __tablename__ = "companies"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        GUID(), primary_key=True, default=uuid.uuid4
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     website: Mapped[str | None] = mapped_column(String(2048))

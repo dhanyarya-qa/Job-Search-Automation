@@ -8,20 +8,50 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator, CHAR
 
 from app.database.engine import Base
+
+
+class GUID(TypeDecorator):
+    """Platform-independent GUID type.
+    
+    Uses PostgreSQL's UUID type, otherwise uses CHAR(36), storing as stringified hex values.
+    """
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            from sqlalchemy.dialects.postgresql import UUID
+            return dialect.type_descriptor(UUID(as_uuid=True))
+        else:
+            return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'postgresql':
+            return value if isinstance(value, uuid.UUID) else uuid.UUID(value)
+        else:
+            return str(value) if isinstance(value, uuid.UUID) else value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        else:
+            return value if isinstance(value, uuid.UUID) else uuid.UUID(value)
 
 
 class Alert(Base):
     __tablename__ = "alerts"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        GUID(), primary_key=True, default=uuid.uuid4
     )
     job_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True
+        GUID(), ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True
     )
     alert_type: Mapped[str] = mapped_column(String(50), nullable=False)  # new_job, high_score, etc.
     title: Mapped[str] = mapped_column(String(255), nullable=False)

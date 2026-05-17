@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     # ─── Telegram ────────────────────────────────────────────────
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    telegram_channel_id: str = ""  # Channel ID (format: -100xxxxxxxxxx)
 
     # ─── JWT Auth ────────────────────────────────────────────────
     jwt_secret_key: str = Field(default="changeme-jwt-secret-32-chars-min!!")

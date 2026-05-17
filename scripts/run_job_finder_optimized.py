@@ -33,6 +33,12 @@ async def send_job_to_telegram(notifier: TelegramNotifier, job: dict) -> bool:
     apply_link = job.get("apply_link", "")
     salary = job.get("salary", "")
     is_priority = job.get("is_priority", False)
+    description = job.get("description", "")
+    job_type = job.get("job_type", "")
+    experience_level = job.get("experience_level", "")
+    is_remote = job.get("is_remote", False)
+    posted_date = job.get("posted_date")
+    expires_at = job.get("expires_at")
     
     try:
         success = await notifier.send_job_notification(
@@ -45,6 +51,12 @@ async def send_job_to_telegram(notifier: TelegramNotifier, job: dict) -> bool:
             apply_link=apply_link,
             platform=platform,
             is_priority=is_priority,
+            description=description,
+            job_type=job_type,
+            experience_level=experience_level,
+            is_remote=is_remote,
+            posted_date=posted_date,
+            expires_at=expires_at,
         )
         if success:
             logger.info("Job sent to Telegram", title=title[:30])

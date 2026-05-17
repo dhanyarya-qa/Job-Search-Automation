@@ -6,45 +6,33 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Check if we're using sync SQLite (for migrations)
 db_url = os.environ.get('DATABASE_URL', '')
 is_sync_sqlite = db_url.startswith('sqlite:///')
 
-if is_sync_sqlite:
-    # For sync SQLite migrations, don't import app modules
-    # Import Base and models directly without triggering async engine creation
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    
-    from sqlalchemy.orm import DeclarativeBase
-    
-    class Base(DeclarativeBase):
-        """Base class for all SQLAlchemy ORM models."""
-        pass
-    
-    # Import models after Base is defined
-    from app.database.models import (  # noqa: F401
-        alert, ai_analysis, application, company,
-        followup, generated_artifact, job, otp_session, scraping_log,
-    )
-else:
-    # For async databases, use normal imports
+if not is_sync_sqlite:
+    # For async databases, get URL from settings
     from app.config import settings
-    from app.database.engine import Base
-    
-    # Import all models so Alembic can detect them
-    from app.database.models import (  # noqa: F401
-        alert, ai_analysis, application, company,
-        followup, generated_artifact, job, otp_session, scraping_log,
-    )
-    
     db_url = settings.database_url
+
+# Always import Base from engine (it won't create async engine during migration)
+from app.database.engine import Base
+
+# Import all models so Alembic can detect them
+from app.database.models import (  # noqa: F401
+    alert, ai_analysis, application, company,
+    followup, generated_artifact, job, otp_session, scraping_log,
+)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", db_url)

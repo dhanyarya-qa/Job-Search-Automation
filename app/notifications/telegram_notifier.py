@@ -19,6 +19,7 @@ class TelegramNotifier:
     def __init__(self) -> None:
         self._token = settings.telegram_bot_token
         self._chat_id = settings.telegram_chat_id
+        self._channel_id = settings.telegram_channel_id
         self._bot: Bot | None = None
 
     def _get_bot(self) -> Bot:
@@ -26,13 +27,18 @@ class TelegramNotifier:
             self._bot = Bot(token=self._token)
         return self._bot
 
-    async def send_message(self, text: str, parse_mode: str = "HTML", reply_markup=None) -> bool:
-        """Send a plain text or HTML message."""
+    async def send_message(self, text: str, parse_mode: str = "HTML", reply_markup=None, to_channel: bool = True) -> bool:
+        """Send a plain text or HTML message to chat and optionally to channel."""
         if not self._token or not self._chat_id:
             logger.warning("Telegram not configured, skipping notification")
             return False
+        
+        success = True
+        
         try:
             bot = self._get_bot()
+            
+            # Send to personal chat
             await bot.send_message(
                 chat_id=self._chat_id,
                 text=text,
@@ -40,8 +46,24 @@ class TelegramNotifier:
                 reply_markup=reply_markup,
                 disable_web_page_preview=True,
             )
-            logger.info("Telegram message sent")
-            return True
+            logger.info("Telegram message sent to chat")
+            
+            # Send to channel if configured and requested
+            if to_channel and self._channel_id:
+                try:
+                    await bot.send_message(
+                        chat_id=self._channel_id,
+                        text=text,
+                        parse_mode=parse_mode,
+                        reply_markup=reply_markup,
+                        disable_web_page_preview=True,
+                    )
+                    logger.info("Telegram message sent to channel")
+                except TelegramError as e:
+                    logger.error("Failed to send to channel", error=str(e))
+                    # Don't fail if channel send fails
+            
+            return success
         except TelegramError as e:
             logger.error("Telegram send failed", error=str(e))
             return False
@@ -57,8 +79,14 @@ class TelegramNotifier:
         apply_link: str | None,
         platform: str,
         is_priority: bool = False,
+        description: str | None = None,
+        job_type: str | None = None,
+        experience_level: str | None = None,
+        is_remote: bool = False,
+        posted_date = None,
+        expires_at = None,
     ) -> bool:
-        """Send a formatted job notification with inline buttons."""
+        """Send a formatted job notification with inline buttons - matches database fields."""
         
         # Priority emoji
         priority_emoji = "⭐ " if is_priority else ""
@@ -72,10 +100,44 @@ class TelegramNotifier:
         if salary:
             text += f"💰 {salary}\n"
         
-        text += f"🌐 Platform: {platform.title()}\n\n"
+        if job_type:
+            text += f"💼 Type: {job_type}\n"
         
-        # Add apply information
-        text += "<b>📨 How to Apply:</b>\n"
+        if experience_level:
+            text += f"🎓 Level: {experience_level}\n"
+        
+        if is_remote:
+            text += f"🏠 Remote: Yes\n"
+        
+        text += f"🌐 Platform: {platform.title()}\n"
+        
+        # Add dates if available
+        if posted_date:
+            try:
+                from datetime import datetime
+                if isinstance(posted_date, str):
+                    posted_date = datetime.fromisoformat(posted_date.replace('Z', '+00:00'))
+                text += f"📅 Posted: {posted_date.strftime('%Y-%m-%d')}\n"
+            except:
+                pass
+        
+        if expires_at:
+            try:
+                from datetime import datetime
+                if isinstance(expires_at, str):
+                    expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                text += f"⏰ Expires: {expires_at.strftime('%Y-%m-%d')}\n"
+            except:
+                pass
+        
+        # Add description preview (first 200 chars)
+        if description and len(description.strip()) > 0:
+            desc_preview = description.strip()[:200]
+            if len(description) > 200:
+                desc_preview += "..."
+            text += f"\n📝 <b>Description:</b>\n{desc_preview}\n"
+        
+        text += "\n<b>📨 How to Apply:</b>\n"
         
         if apply_email:
             text += f"✉️ Email: <code>{apply_email}</code>\n"

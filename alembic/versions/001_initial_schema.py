@@ -21,7 +21,7 @@ def upgrade() -> None:
     # ─── jobs ─────────────────────────────────────────────────────
     op.create_table(
         "jobs",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("job_title", sa.String(255), nullable=False),
         sa.Column("company_name", sa.String(255), nullable=False),
         sa.Column("location", sa.String(255)),
@@ -45,7 +45,7 @@ def upgrade() -> None:
     # ─── companies ────────────────────────────────────────────────
     op.create_table(
         "companies",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("name", sa.String(255), nullable=False, unique=True),
         sa.Column("website", sa.String(2048)),
         sa.Column("industry", sa.String(100)),
@@ -62,8 +62,8 @@ def upgrade() -> None:
     # ─── ai_analysis ──────────────────────────────────────────────
     op.create_table(
         "ai_analysis",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("job_id", sa.String(36), sa.ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False),
         sa.Column("match_score", sa.Float),
         sa.Column("reasoning", sa.Text),
         sa.Column("job_category", sa.String(100)),
@@ -82,8 +82,8 @@ def upgrade() -> None:
     # ─── applications ─────────────────────────────────────────────
     op.create_table(
         "applications",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("job_id", sa.String(36), sa.ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False),
         sa.Column("status", sa.String(50), default="pending"),
         sa.Column("applied_at", sa.DateTime(timezone=True)),
         sa.Column("followup_due", sa.DateTime(timezone=True)),
@@ -97,8 +97,8 @@ def upgrade() -> None:
     # ─── followups ────────────────────────────────────────────────
     op.create_table(
         "followups",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("application_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("applications.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("application_id", sa.String(36), sa.ForeignKey("applications.id", ondelete="CASCADE"), nullable=False),
         sa.Column("follow_up_date", sa.DateTime(timezone=True), nullable=False),
         sa.Column("method", sa.String(50), default="email"),
         sa.Column("notes", sa.Text),
@@ -109,8 +109,8 @@ def upgrade() -> None:
     # ─── alerts ───────────────────────────────────────────────────
     op.create_table(
         "alerts",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("job_id", sa.String(36), sa.ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True),
         sa.Column("alert_type", sa.String(50), nullable=False),
         sa.Column("title", sa.String(255), nullable=False),
         sa.Column("message", sa.Text, nullable=False),
@@ -123,7 +123,7 @@ def upgrade() -> None:
     # ─── otp_sessions ─────────────────────────────────────────────
     op.create_table(
         "otp_sessions",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("user_identifier", sa.String(255), nullable=False),
         sa.Column("otp_hash", sa.String(255), nullable=False),
         sa.Column("purpose", sa.String(50), default="login"),
@@ -136,8 +136,8 @@ def upgrade() -> None:
     # ─── generated_artifacts ──────────────────────────────────────
     op.create_table(
         "generated_artifacts",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("job_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("job_id", sa.String(36), sa.ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True),
         sa.Column("artifact_type", sa.String(50), nullable=False),
         sa.Column("content", sa.Text, nullable=False),
         sa.Column("file_path", sa.String(512)),
@@ -149,7 +149,7 @@ def upgrade() -> None:
     # ─── scraping_logs ────────────────────────────────────────────
     op.create_table(
         "scraping_logs",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("scraper_type", sa.String(50), nullable=False),
         sa.Column("platform", sa.String(100), nullable=False),
         sa.Column("keyword", sa.String(255)),

@@ -30,7 +30,7 @@ class ApplicationTracking(Base):
     __tablename__ = "application_tracking"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    job_id: Mapped[int] = mapped_column(Integer, ForeignKey("jobs.id"), nullable=False)
+    job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"), nullable=False)
     
     # Status tracking
     status: Mapped[str] = mapped_column(String(50), default=ApplicationStatus.SAVED.value, nullable=False)
