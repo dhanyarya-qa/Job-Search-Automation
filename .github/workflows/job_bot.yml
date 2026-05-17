@@ -68,9 +68,9 @@ jobs:
           file: ./coverage.xml
           fail_ci_if_error: false
 
-  # ─── Scraper Job ─────────────────────────────────────────────────
+  # ─── Scraper Job (LinkedIn + Indeed + Dealls) ─────────────────────
   scrape:
-    name: Run Scraper
+    name: Run Scraper (LinkedIn + Indeed + Dealls)
     runs-on: ubuntu-latest
     needs: test
     container:
@@ -96,7 +96,65 @@ jobs:
           python scripts/run_migrations.py
         continue-on-error: false
 
-      - name: Run Job Finder (Scrape & Send to Telegram)
+      - name: Cleanup Duplicate URLs (one-time migration)
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./job_hunting_ats.db
+        run: |
+          echo "Normalizing existing job URLs (strip LinkedIn/Indeed tracking params)..."
+          python -c "
+          import sqlite3
+          from urllib.parse import urlparse, urlencode, parse_qs
+
+          def normalize(url):
+              if not url:
+                  return url
+              url = url.strip()
+              linkedin_params = {'position','pageNum','refId','trackingId','trk','lipi','lici','currentJobId','eBP','recommendedFlavor','savedSearchId'}
+              indeed_params = {'fclid','from','utm_source','utm_medium','utm_campaign','vjk','advn','sjdu'}
+              try:
+                  parsed = urlparse(url)
+                  host = parsed.hostname or ''
+                  if 'linkedin.com' in host: strip = linkedin_params
+                  elif 'indeed.com' in host: strip = indeed_params
+                  else: return url
+                  qp = parse_qs(parsed.query, keep_blank_values=True)
+                  cp = {k:v for k,v in qp.items() if k not in strip}
+                  cq = urlencode(cp, doseq=True) if cp else ''
+                  return parsed._replace(query=cq, fragment='').geturl()
+              except: return url
+
+          conn = sqlite3.connect('job_hunting_ats.db')
+          cur = conn.cursor()
+          cur.execute('SELECT id, job_url, created_at FROM jobs ORDER BY created_at ASC')
+          rows = cur.fetchall()
+          seen = {}
+          to_update = []
+          to_delete = []
+          for jid, jurl, cat in rows:
+              n = normalize(jurl)
+              if n in seen:
+                  to_delete.append(jid)
+              else:
+                  seen[n] = jid
+                  if n != jurl:
+                      to_update.append((jid, n))
+          for jid, nurl in to_update:
+              try: cur.execute('UPDATE jobs SET job_url=? WHERE id=?', (nurl, jid))
+              except: to_delete.append(jid)
+          if to_delete:
+              ph = ','.join('?' * len(to_delete))
+              for t in ['ai_analyses','applications','application_tracking']:
+                  try: cur.execute(f'DELETE FROM {t} WHERE job_id IN ({ph})', to_delete)
+                  except: pass
+              cur.execute(f'DELETE FROM jobs WHERE id IN ({ph})', to_delete)
+          conn.commit()
+          cur.execute('SELECT COUNT(*) FROM jobs')
+          print(f'DB cleanup: updated {len(to_update)} URLs, removed {len(to_delete)} duplicates, {cur.fetchone()[0]} jobs remaining')
+          conn.close()
+          " || echo "URL cleanup completed (no action needed)"
+        continue-on-error: true
+
+      - name: Run Job Finder (LinkedIn + Indeed + Dealls → Telegram)
         id: job_finder
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -112,7 +170,7 @@ jobs:
           OUTPUT_DIR: ./outputs
         run: |
           mkdir -p outputs/json outputs/csv outputs/reports outputs/artifacts
-          echo "Starting job finder..."
+          echo "Starting job finder (LinkedIn + Indeed + Dealls + LinkedIn Posts)..."
           python scripts/run_job_finder_optimized.py || echo "Job finder completed with warnings"
         continue-on-error: true
 
@@ -162,9 +220,11 @@ jobs:
         run: |
           echo "Workflow completed at $(date)" > outputs/workflow_summary.txt
           echo "Database: job_hunting_ats.db" >> outputs/workflow_summary.txt
+          echo "Platforms: LinkedIn, Indeed, Dealls" >> outputs/workflow_summary.txt
           ls -la outputs/ >> outputs/workflow_summary.txt || true
           if [ -f job_hunting_ats.db ]; then
             echo "Database size: $(du -h job_hunting_ats.db | cut -f1)" >> outputs/workflow_summary.txt
+            python -c "import sqlite3; c=sqlite3.connect('job_hunting_ats.db'); r=c.execute('SELECT source_platform, COUNT(*) FROM jobs GROUP BY source_platform').fetchall(); print('Jobs by platform:'); [print(f'  {p}: {n}') for p,n in r]; c.close()" >> outputs/workflow_summary.txt || true
           fi
         continue-on-error: true
 

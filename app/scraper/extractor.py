@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timezone
+from urllib.parse import urlparse, urlencode, parse_qs
 
 import structlog
 from bs4 import BeautifulSoup
@@ -66,6 +67,62 @@ class JobExtractor:
                 return href
         
         return None
+
+    @staticmethod
+    def normalize_job_url(url: str) -> str:
+        """Normalize job URL by removing tracking/session parameters.
+        
+        LinkedIn and Indeed append tracking params (position, pageNum, refId,
+        trackingId, etc.) that change every scrape session, causing the same
+        job to look like a different URL each time.
+        
+        This strips those params so duplicate detection works correctly.
+        """
+        if not url:
+            return url
+        
+        url = url.strip()
+        
+        # LinkedIn tracking params to remove
+        linkedin_strip_params = {
+            'position', 'pageNum', 'refId', 'trackingId',
+            'trk', 'lipi', 'lici', 'currentJobId', 'eBP',
+            'recommendedFlavor', 'savedSearchId',
+        }
+        
+        # Indeed tracking params to remove
+        indeed_strip_params = {
+            'fclid', 'from', 'utm_source', 'utm_medium',
+            'utm_campaign', 'vjk', 'advn', 'sjdu',
+        }
+        
+        try:
+            parsed = urlparse(url)
+            hostname = parsed.hostname or ''
+            
+            if 'linkedin.com' in hostname:
+                params_to_strip = linkedin_strip_params
+            elif 'indeed.com' in hostname:
+                params_to_strip = indeed_strip_params
+            else:
+                # For other platforms, keep URL as-is
+                return url
+            
+            # Parse query params and remove tracking ones
+            query_params = parse_qs(parsed.query, keep_blank_values=True)
+            cleaned_params = {
+                k: v for k, v in query_params.items()
+                if k not in params_to_strip
+            }
+            
+            # Rebuild URL without tracking params
+            clean_query = urlencode(cleaned_params, doseq=True) if cleaned_params else ''
+            cleaned_url = parsed._replace(query=clean_query, fragment='').geturl()
+            
+            return cleaned_url
+        except Exception:
+            # If parsing fails, return original URL
+            return url
 
     @staticmethod
     def clean_text(text: str | None) -> str:
@@ -168,7 +225,7 @@ class JobExtractor:
             "description": self.clean_text(description)[:5000],
             "requirements": requirements,
             "tech_stack": tech_stack,
-            "job_url": job_url.strip(),
+            "job_url": self.normalize_job_url(job_url),
             "apply_link": apply_link.strip() if apply_link else "",
             "apply_email": apply_email.strip() if apply_email else "",
             "posted_date": posted_date,

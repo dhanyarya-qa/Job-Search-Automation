@@ -78,13 +78,16 @@ class LocalJobScraper(BaseScraper):
         finally:
             await self.close()
 
-        # Deduplicate by URL
+        # Deduplicate by normalized URL (strips tracking params)
         seen_urls: set[str] = set()
         unique_jobs = []
         for job in all_jobs:
             url = job.get("job_url", "")
-            if url and url not in seen_urls:
-                seen_urls.add(url)
+            # URL is already normalized by JobExtractor.build_job_dict(),
+            # but normalize again for safety
+            normalized = self._extractor.normalize_job_url(url) if url else ""
+            if normalized and normalized not in seen_urls:
+                seen_urls.add(normalized)
                 unique_jobs.append(job)
 
         logger.info("Scraping complete", total=len(unique_jobs), duplicates_removed=len(all_jobs) - len(unique_jobs))
@@ -114,6 +117,8 @@ class LocalJobScraper(BaseScraper):
                 jobs = await self._parse_kalibrr(page, html)
             elif platform == "indeed":
                 jobs = await self._parse_indeed(page, html)
+            elif platform == "dealls":
+                jobs = await self._parse_dealls(page, html)
             elif platform == "karir":
                 jobs = await self._parse_karir(page, html)
             elif platform == "urbanhire":
@@ -299,6 +304,108 @@ class LocalJobScraper(BaseScraper):
                     logger.debug("Indeed card error", error=str(e))
         except Exception as e:
             logger.error("Indeed parse failed", error=str(e))
+        return jobs
+
+    async def _parse_dealls(self, page: Page, html: str) -> list[dict]:
+        """Parse Dealls.com job listings.
+        
+        Dealls uses cards wrapped in <a href="/loker/..."> with:
+        - h2 for job title
+        - sibling div after h2 for company name  
+        - span elements for job type, location, experience, salary
+        """
+        jobs: list[dict] = []
+        try:
+            # Click "Lebih Banyak" (Show More) to load all jobs if available
+            try:
+                show_more = await page.query_selector("text=Lebih Banyak")
+                if show_more:
+                    await show_more.click()
+                    await asyncio.sleep(2)  # Wait for dynamic load
+            except Exception:
+                pass  # No show more button or already expanded
+
+            # Job cards are <a> links with href starting with /loker/
+            cards = await page.query_selector_all("a[href^='/loker/']")
+            for card in cards[:20]:
+                try:
+                    # Title is in h2
+                    title_el = await card.query_selector("h2")
+                    title = await title_el.inner_text() if title_el else ""
+
+                    # Company name is the div right after h2
+                    company = ""
+                    if title_el:
+                        company_el = await title_el.evaluate_handle(
+                            "(el) => el.nextElementSibling"
+                        )
+                        if company_el:
+                            company = await company_el.inner_text() or ""
+
+                    # Get href for job URL
+                    href = await card.get_attribute("href") or ""
+                    job_url = f"https://dealls.com{href}" if href.startswith("/") else href
+
+                    # Extract span elements for metadata
+                    spans = await card.query_selector_all("span")
+                    location = ""
+                    salary = ""
+                    job_type = ""
+                    experience_level = ""
+                    is_remote = False
+
+                    for span in spans:
+                        text = (await span.inner_text()).strip()
+                        if not text:
+                            continue
+
+                        # Location contains bullet separator (e.g. "Hybrid • Jakarta")
+                        if "\u2022" in text or "•" in text:
+                            location = text
+                            # Check remote/WFH
+                            lower = text.lower()
+                            if any(w in lower for w in ["remote", "wfh", "work from home"]):
+                                is_remote = True
+
+                        # Salary contains "Rp" or "Negotiable"
+                        elif "Rp" in text or "negotiable" in text.lower():
+                            salary = text
+
+                        # Experience contains "Min." or "Years"
+                        elif "min." in text.lower() or "years" in text.lower() or "tahun" in text.lower():
+                            experience_level = text
+
+                    # Job type from button element
+                    type_el = await card.query_selector("button")
+                    if type_el:
+                        type_text = (await type_el.inner_text()).strip()
+                        # Map Indonesian to English
+                        type_map = {
+                            "penuh waktu": "Full-time",
+                            "paruh waktu": "Part-time",
+                            "kontrak": "Contract",
+                            "magang": "Internship",
+                            "freelance": "Freelance",
+                        }
+                        job_type = type_map.get(type_text.lower(), type_text)
+
+                    if title and job_url:
+                        jobs.append(self._extractor.build_job_dict(
+                            job_title=title,
+                            company_name=company,
+                            location=location,
+                            description="",
+                            salary=salary if salary.lower() != "negotiable" else "",
+                            job_url=job_url,
+                            source_platform="dealls",
+                            job_type=job_type,
+                            experience_level=experience_level,
+                            is_remote=is_remote,
+                        ))
+                except Exception as e:
+                    logger.debug("Dealls card error", error=str(e))
+        except Exception as e:
+            logger.error("Dealls parse failed", error=str(e))
         return jobs
 
     async def _parse_karir(self, page: Page, html: str) -> list[dict]:

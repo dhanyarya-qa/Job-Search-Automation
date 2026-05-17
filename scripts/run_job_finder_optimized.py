@@ -105,13 +105,21 @@ async def save_job_to_db_with_tracking(job: dict) -> bool:
 
 
 async def is_job_already_sent(job_url: str) -> bool:
-    """Check if job was already sent to avoid duplicates"""
+    """Check if job was already sent to avoid duplicates.
+    
+    Normalizes URL first to strip tracking params (position, refId, etc.)
+    that LinkedIn/Indeed append differently on each scrape session.
+    """
     if not job_url:
         return False
+    
+    from app.scraper.extractor import JobExtractor
+    normalized_url = JobExtractor.normalize_job_url(job_url)
+    
     try:
         async for session in get_async_session():
             result = await session.execute(
-                select(Job).where(Job.job_url == job_url).limit(1)
+                select(Job).where(Job.job_url == normalized_url).limit(1)
             )
             existing = result.scalar_one_or_none()
             return existing is not None
@@ -149,13 +157,13 @@ async def main():
     
     print(f"🔍 Searching for {len(keywords)} keywords...")
     print(f"Keywords: {', '.join(keywords)}")
-    print(f"Sources: LinkedIn Jobs + LinkedIn Posts")
+    print(f"Sources: LinkedIn Jobs + Indeed + Dealls + LinkedIn Posts")
     print()
     
     try:
         for keyword_idx, keyword in enumerate(keywords, 1):
             print(f"[{keyword_idx}/{len(keywords)}] Searching: {keyword}")
-            print(f"  Platforms: LinkedIn Jobs, Indeed, LinkedIn Posts")
+            print(f"  Platforms: LinkedIn Jobs, Indeed, Dealls, LinkedIn Posts")
             
             # ===== 1. SCRAPE LINKEDIN JOBS & INDEED =====
             try:
@@ -251,7 +259,7 @@ async def main():
         print("=" * 60)
         print("📊 SUMMARY")
         print("=" * 60)
-        print(f"📋 JOBS (LinkedIn + Indeed):")
+        print(f"📋 JOBS (LinkedIn + Indeed + Dealls):")
         print(f"  Total found: {total_found}")
         print(f"  After filters: {total_filtered}")
         print(f"  New jobs: {total_new}")
@@ -270,7 +278,7 @@ async def main():
         if total_sent > 0 or total_posts_sent > 0:
             summary = (
                 f"✅ <b>Job Search Complete</b>\n\n"
-                f"📋 <b>Jobs (LinkedIn + Indeed)</b>\n"
+                f"📋 <b>Jobs (LinkedIn + Indeed + Dealls)</b>\n"
                 f"🔍 Found: {total_found}\n"
                 f"✨ Filtered: {total_filtered}\n"
                 f"🆕 New: {total_new}\n"

@@ -69,11 +69,17 @@ async def send_job_to_telegram(notifier: TelegramNotifier, job: dict) -> bool:
 
 
 async def is_job_already_sent(job_url: str) -> bool:
-    """Check if job was already sent to avoid duplicates"""
+    """Check if job was already sent to avoid duplicates.
+    
+    Normalizes URL to strip tracking params that change per session.
+    """
     try:
+        from app.scraper.extractor import JobExtractor
+        normalized_url = JobExtractor.normalize_job_url(job_url)
+        
         async for session in get_async_session():
             result = await session.execute(
-                select(Job).where(Job.job_url == job_url).limit(1)
+                select(Job).where(Job.job_url == normalized_url).limit(1)
             )
             existing = result.scalar_one_or_none()
             return existing is not None
