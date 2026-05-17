@@ -91,6 +91,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run Job Finder (Scrape & Send to Telegram)
+        id: job_finder
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -108,7 +109,17 @@ jobs:
           python scripts/run_job_finder_optimized.py || echo "Job finder completed with warnings"
         continue-on-error: true
 
+      - name: Notify Job Finder Error
+        if: failure() && steps.job_finder.outcome == 'failure'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python scripts/notify_error.py "Job Finder" "Job finder script failed in GitHub Actions"
+        continue-on-error: true
+
       - name: Send Daily Summary
+        id: daily_summary
         if: github.event.schedule == '0 9 * * *'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -120,6 +131,7 @@ jobs:
         continue-on-error: true
 
       - name: Check Expiring Jobs
+        id: expiring_jobs
         if: github.event.schedule == '0 9,18 * * *'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
