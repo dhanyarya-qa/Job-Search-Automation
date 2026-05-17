@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.endpoints import ai_analysis, alerts, applications, auth, health, jobs
+from app.api.endpoints import ai_analysis, alerts, applications, application_tracking, auth, health, jobs
 
 api_router = APIRouter()
 
@@ -15,4 +15,5 @@ api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 api_router.include_router(jobs.router, prefix="/jobs", tags=["Jobs"])
 api_router.include_router(ai_analysis.router, prefix="/ai-analysis", tags=["AI Analysis"])
 api_router.include_router(applications.router, prefix="/applications", tags=["Applications"])
+api_router.include_router(application_tracking.router, prefix="/application-tracking", tags=["Application Tracking"])
 api_router.include_router(alerts.router, prefix="/alerts", tags=["Alerts"])

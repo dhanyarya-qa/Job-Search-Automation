@@ -112,6 +112,12 @@ class LocalJobScraper(BaseScraper):
                 jobs = await self._parse_glints(page, html)
             elif platform == "kalibrr":
                 jobs = await self._parse_kalibrr(page, html)
+            elif platform == "indeed":
+                jobs = await self._parse_indeed(page, html)
+            elif platform == "karir":
+                jobs = await self._parse_karir(page, html)
+            elif platform == "urbanhire":
+                jobs = await self._parse_urbanhire(page, html)
 
         except Exception as e:
             logger.error("Platform parse error", platform=platform, error=str(e))
@@ -256,4 +262,110 @@ class LocalJobScraper(BaseScraper):
                     logger.debug("Kalibrr card error", error=str(e))
         except Exception as e:
             logger.error("Kalibrr parse failed", error=str(e))
+        return jobs
+
+    async def _parse_indeed(self, page: Page, html: str) -> list[dict]:
+        """Parse Indeed job listings."""
+        jobs: list[dict] = []
+        try:
+            cards = await page.query_selector_all(".job_seen_beacon")
+            for card in cards[:20]:
+                try:
+                    title_el = await card.query_selector("h2.jobTitle")
+                    company_el = await card.query_selector("[data-testid='company-name']")
+                    location_el = await card.query_selector("[data-testid='text-location']")
+                    salary_el = await card.query_selector(".salary-snippet")
+                    link_el = await card.query_selector("a.jcs-JobTitle")
+
+                    title = await title_el.inner_text() if title_el else ""
+                    company = await company_el.inner_text() if company_el else ""
+                    location = await location_el.inner_text() if location_el else ""
+                    salary = await salary_el.inner_text() if salary_el else ""
+                    href = await link_el.get_attribute("href") if link_el else ""
+                    job_url = f"https://id.indeed.com{href}" if href and href.startswith("/") else href
+
+                    if title and company:
+                        jobs.append(self._extractor.build_job_dict(
+                            job_title=title,
+                            company_name=company,
+                            location=location,
+                            description="",
+                            salary=salary,
+                            job_url=job_url or "https://id.indeed.com",
+                            source_platform="indeed",
+                            html_content=html,
+                        ))
+                except Exception as e:
+                    logger.debug("Indeed card error", error=str(e))
+        except Exception as e:
+            logger.error("Indeed parse failed", error=str(e))
+        return jobs
+
+    async def _parse_karir(self, page: Page, html: str) -> list[dict]:
+        """Parse Karir.com job listings."""
+        jobs: list[dict] = []
+        try:
+            cards = await page.query_selector_all(".job-item, .job-list-item")
+            for card in cards[:20]:
+                try:
+                    title_el = await card.query_selector(".job-title, h3")
+                    company_el = await card.query_selector(".company-name, .company")
+                    location_el = await card.query_selector(".location, .job-location")
+                    link_el = await card.query_selector("a")
+
+                    title = await title_el.inner_text() if title_el else ""
+                    company = await company_el.inner_text() if company_el else ""
+                    location = await location_el.inner_text() if location_el else ""
+                    href = await link_el.get_attribute("href") if link_el else ""
+                    job_url = f"https://www.karir.com{href}" if href and href.startswith("/") else href
+
+                    if title and company:
+                        jobs.append(self._extractor.build_job_dict(
+                            job_title=title,
+                            company_name=company,
+                            location=location,
+                            description="",
+                            job_url=job_url or "https://www.karir.com",
+                            source_platform="karir",
+                        ))
+                except Exception as e:
+                    logger.debug("Karir card error", error=str(e))
+        except Exception as e:
+            logger.error("Karir parse failed", error=str(e))
+        return jobs
+
+    async def _parse_urbanhire(self, page: Page, html: str) -> list[dict]:
+        """Parse Urbanhire job listings."""
+        jobs: list[dict] = []
+        try:
+            cards = await page.query_selector_all(".job-card, .job-item")
+            for card in cards[:20]:
+                try:
+                    title_el = await card.query_selector(".job-title, h3")
+                    company_el = await card.query_selector(".company-name, .company")
+                    location_el = await card.query_selector(".location, .job-location")
+                    salary_el = await card.query_selector(".salary")
+                    link_el = await card.query_selector("a")
+
+                    title = await title_el.inner_text() if title_el else ""
+                    company = await company_el.inner_text() if company_el else ""
+                    location = await location_el.inner_text() if location_el else ""
+                    salary = await salary_el.inner_text() if salary_el else ""
+                    href = await link_el.get_attribute("href") if link_el else ""
+                    job_url = f"https://www.urbanhire.com{href}" if href and href.startswith("/") else href
+
+                    if title and company:
+                        jobs.append(self._extractor.build_job_dict(
+                            job_title=title,
+                            company_name=company,
+                            location=location,
+                            description="",
+                            salary=salary,
+                            job_url=job_url or "https://www.urbanhire.com",
+                            source_platform="urbanhire",
+                        ))
+                except Exception as e:
+                    logger.debug("Urbanhire card error", error=str(e))
+        except Exception as e:
+            logger.error("Urbanhire parse failed", error=str(e))
         return jobs

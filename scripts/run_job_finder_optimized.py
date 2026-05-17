@@ -54,6 +54,36 @@ async def send_job_to_telegram(notifier: TelegramNotifier, job: dict) -> bool:
         return False
 
 
+async def save_job_to_db_with_tracking(job: dict) -> bool:
+    """Save job to database with Telegram tracking"""
+    try:
+        async for session in get_async_session():
+            job_record = Job(
+                job_title=job.get("job_title"),
+                company_name=job.get("company_name"),
+                location=job.get("location"),
+                description=job.get("description", ""),
+                salary=job.get("salary"),
+                job_url=job.get("job_url"),
+                source_platform=job.get("source_platform"),
+                apply_email=job.get("apply_email"),
+                apply_link=job.get("apply_link"),
+                job_type=job.get("job_type"),
+                experience_level=job.get("experience_level"),
+                is_remote=job.get("is_remote", False),
+                is_priority=job.get("is_priority", False),
+                expires_at=job.get("expires_at"),
+                sent_to_telegram=True,
+                telegram_sent_at=datetime.now(timezone.utc),
+            )
+            session.add(job_record)
+            await session.commit()
+            return True
+    except Exception as e:
+        logger.error("Failed to save job", error=str(e))
+        return False
+
+
 async def is_job_already_sent(job_url: str) -> bool:
     """Check if job was already sent to avoid duplicates"""
     if not job_url:
@@ -70,27 +100,7 @@ async def is_job_already_sent(job_url: str) -> bool:
         return False
 
 
-async def save_job_to_db(job: dict) -> bool:
-    """Save job to database"""
-    try:
-        async for session in get_async_session():
-            job_record = Job(
-                job_title=job.get("job_title"),
-                company_name=job.get("company_name"),
-                location=job.get("location"),
-                description=job.get("description", ""),
-                salary=job.get("salary"),
-                job_url=job.get("job_url"),
-                source_platform=job.get("source_platform"),
-                apply_email=job.get("apply_email"),
-                apply_link=job.get("apply_link"),
-            )
-            session.add(job_record)
-            await session.commit()
-            return True
-    except Exception as e:
-        logger.error("Failed to save job", error=str(e))
-        return False
+
 
 
 async def main():
@@ -101,8 +111,10 @@ async def main():
     
     scraper = LocalJobScraper()
     notifier = TelegramNotifier()
+    job_filter = DEFAULT_FILTER
     
     total_found = 0
+    total_filtered = 0
     total_new = 0
     total_sent = 0
     
@@ -116,7 +128,7 @@ async def main():
     try:
         for keyword_idx, keyword in enumerate(keywords, 1):
             print(f"[{keyword_idx}/{len(keywords)}] Searching: {keyword}")
-            print(f"  Platforms: LinkedIn, JobStreet, Glints, Kalibrr")
+            print(f"  Platforms: LinkedIn, JobStreet, Glints, Kalibrr, Indeed, Karir, Urbanhire")
             
             try:
                 # Scrape this keyword from ALL platforms
@@ -133,8 +145,42 @@ async def main():
                 for platform, count in platform_counts.items():
                     print(f"    - {platform.title()}: {count}")
                 
-                # Process each job immediately
-                for job in jobs:
+                # Apply filters
+                filtered_jobs, priority_jobs = job_filter.filter_jobs(jobs)
+                all_filtered = priority_jobs + filtered_jobs
+                total_filtered += len(all_filtered)
+                
+                print(f"  After filtering: {len(all_filtered)} jobs ({len(priority_jobs)} priority)")
+                
+                # Process priority jobs first
+                for job in priority_jobs:
+                    job_url = job.get("job_url", "")
+                    title = job.get("job_title", "Unknown")[:40]
+                    
+                    # Check if already sent
+                    if job_url and await is_job_already_sent(job_url):
+                        print(f"  ⏭️  Already sent: {title}")
+                        continue
+                    
+                    total_new += 1
+                    
+                    # Send to Telegram
+                    success = await send_job_to_telegram(notifier, job)
+                    
+                    if success:
+                        total_sent += 1
+                        print(f"  ⭐ Sent (Priority): {title}")
+                        
+                        # Save to database
+                        await save_job_to_db_with_tracking(job)
+                        
+                        # Small delay to avoid rate limiting
+                        await asyncio.sleep(1)
+                    else:
+                        print(f"  ❌ Failed: {title}")
+                
+                # Process regular filtered jobs
+                for job in filtered_jobs:
                     job_url = job.get("job_url", "")
                     title = job.get("job_title", "Unknown")[:40]
                     
@@ -153,7 +199,7 @@ async def main():
                         print(f"  ✅ Sent: {title}")
                         
                         # Save to database
-                        await save_job_to_db(job)
+                        await save_job_to_db_with_tracking(job)
                         
                         # Small delay to avoid rate limiting
                         await asyncio.sleep(1)
@@ -170,6 +216,7 @@ async def main():
         print("📊 SUMMARY")
         print("=" * 60)
         print(f"Total found: {total_found}")
+        print(f"After filters: {total_filtered}")
         print(f"New jobs: {total_new}")
         print(f"Sent to Telegram: {total_sent}")
         print("=" * 60)
@@ -179,6 +226,7 @@ async def main():
             summary = (
                 f"✅ <b>Job Search Complete</b>\n\n"
                 f"🔍 Total found: {total_found}\n"
+                f"✨ After filters: {total_filtered}\n"
                 f"🆕 New jobs: {total_new}\n"
                 f"📱 Sent to Telegram: {total_sent}\n\n"
                 f"Keywords: {', '.join(keywords)}"

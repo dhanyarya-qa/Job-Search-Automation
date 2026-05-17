@@ -2,7 +2,9 @@ name: Ultimate Job Hunting ATS — Automated Pipeline
 
 on:
   schedule:
-    - cron: "0 * * * *"  # Every hour
+    - cron: "0 * * * *"  # Every hour - Job scraping
+    - cron: "0 9 * * *"  # Daily at 9 AM - Daily summary
+    - cron: "0 9,18 * * *"  # Twice daily at 9 AM and 6 PM - Expiry reminders
   push:
     branches: [main]
   workflow_dispatch:
@@ -104,6 +106,28 @@ jobs:
           mkdir -p outputs/json outputs/csv outputs/reports outputs/artifacts
           echo "Starting job finder..."
           python scripts/run_job_finder_optimized.py || echo "Job finder completed with warnings"
+        continue-on-error: true
+
+      - name: Send Daily Summary
+        if: github.event.schedule == '0 9 * * *'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DATABASE_URL: sqlite+aiosqlite:///./job_hunting_ats.db
+        run: |
+          echo "Sending daily summary..."
+          python scripts/send_daily_summary.py || echo "Daily summary completed with warnings"
+        continue-on-error: true
+
+      - name: Check Expiring Jobs
+        if: github.event.schedule == '0 9,18 * * *'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DATABASE_URL: sqlite+aiosqlite:///./job_hunting_ats.db
+        run: |
+          echo "Checking expiring jobs..."
+          python scripts/check_expiring_jobs.py || echo "Expiry check completed with warnings"
         continue-on-error: true
 
       - name: Generate Report

@@ -31,12 +31,17 @@ LOCAL_PLATFORMS: dict[str, str] = {
     "jobstreet": "https://www.jobstreet.co.id/jobs/{keyword}-jobs",
     "glints": "https://glints.com/id/opportunities/jobs/explore?keyword={keyword}&country=ID",
     "kalibrr": "https://www.kalibrr.id/jobs#?keyword={keyword}",
+    "indeed": "https://id.indeed.com/jobs?q={keyword}&l=Indonesia",
+    "karir": "https://www.karir.com/search?q={keyword}",
+    "urbanhire": "https://www.urbanhire.com/jobs?q={keyword}",
 }
 
 WEB3_PLATFORMS: dict[str, str] = {
     "cryptojobslist": "https://cryptojobslist.com/qa?q={keyword}",
     "web3career": "https://web3.career/{keyword}-jobs",
     "remote3": "https://remote3.co/{keyword}-web3-jobs",
+    "techinasia": "https://www.techinasia.com/jobs/search?query={keyword}",
+    "angellist": "https://angel.co/jobs?q={keyword}",
 }
 
 # ─── Browser Config ───────────────────────────────────────────────

@@ -56,6 +56,9 @@ class Job(Base):
     applications: Mapped[list["Application"]] = relationship(  # noqa: F821
         "Application", back_populates="job", cascade="all, delete-orphan"
     )
+    application_tracking: Mapped[list["ApplicationTracking"]] = relationship(  # noqa: F821
+        "ApplicationTracking", back_populates="job", cascade="all, delete-orphan"
+    )
 
     # ─── Indexes ──────────────────────────────────────────────────
     __table_args__ = (
