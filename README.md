@@ -78,6 +78,21 @@ Tambahkan secrets berikut:
 python scripts/run_job_finder_optimized.py
 
 # Cek Telegram, harusnya ada notifikasi job masuk!
+📋 Job title
+🏢 Company
+📍 Location
+💰 Salary
+💼 Type (Full-time/Contract/etc)
+🎓 Level (Junior/Mid/Senior)
+🏠 Remote status
+📅 Posted date
+⏰ Expiry date
+📝 Description preview
+✉️ Apply email
+🔗 Apply link
+
+Buttons untuk action
+
 ```
 
 ---
