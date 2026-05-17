@@ -75,7 +75,7 @@ Tambahkan secrets berikut:
 
 ```bash
 # Test scraper
-python scripts/test_job_finder_quick.py
+python scripts/run_job_finder_optimized.py
 
 # Cek Telegram, harusnya ada notifikasi job masuk!
 ```
