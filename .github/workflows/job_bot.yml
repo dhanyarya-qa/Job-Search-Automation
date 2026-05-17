@@ -76,6 +76,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Download previous database
+        uses: dawidd6/action-download-artifact@v3
+        continue-on-error: true
+        with:
+          workflow: job_bot.yml
+          name: job-database
+          path: .
+          if_no_artifact_found: ignore
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 
@@ -108,24 +117,25 @@ jobs:
           echo "Workflow completed at $(date)" > outputs/workflow_summary.txt
           echo "Database: job_hunting_ats.db" >> outputs/workflow_summary.txt
           ls -la outputs/ >> outputs/workflow_summary.txt || true
+          if [ -f job_hunting_ats.db ]; then
+            echo "Database size: $(du -h job_hunting_ats.db | cut -f1)" >> outputs/workflow_summary.txt
+          fi
         continue-on-error: true
 
-      - name: Upload Artifacts
+      - name: Upload Database (for next run)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: job-database
+          path: job_hunting_ats.db
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Upload Outputs
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ats-outputs-${{ github.run_number }}
-          path: |
-            outputs/
-            *.db
+          path: outputs/
           retention-days: 30
           if-no-files-found: warn
-
-      - name: Commit Outputs
-        run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "ATS Bot"
-          git add outputs/ *.db || true
-          git diff --staged --quiet || git commit -m "chore: auto-update outputs [skip ci]" || true
-          git push || true
-        continue-on-error: true
