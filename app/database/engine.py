@@ -4,6 +4,7 @@ Database Engine — Async SQLAlchemy engine and session factory.
 
 from __future__ import annotations
 
+import os
 import structlog
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -24,27 +25,36 @@ engine_kwargs = {
 }
 
 # Only add pool settings for non-SQLite databases
-if not settings.database_url.startswith("sqlite"):
-    engine_kwargs.update({
-        "pool_size": settings.database_pool_size,
-        "max_overflow": settings.database_max_overflow,
-        "pool_pre_ping": True,
-        "pool_recycle": 3600,
-    })
+db_url = settings.database_url
 
-engine: AsyncEngine = create_async_engine(
-    settings.database_url,
-    **engine_kwargs,
-)
+# Check if we're in migration mode (sync SQLite)
+if os.environ.get('DATABASE_URL', '').startswith('sqlite:///'):
+    # Don't create async engine during migrations
+    engine = None  # type: ignore
+    AsyncSessionLocal = None  # type: ignore
+else:
+    # Normal async mode
+    if not db_url.startswith("sqlite"):
+        engine_kwargs.update({
+            "pool_size": settings.database_pool_size,
+            "max_overflow": settings.database_max_overflow,
+            "pool_pre_ping": True,
+            "pool_recycle": 3600,
+        })
 
-# ─── Session Factory ──────────────────────────────────────────────
-AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False,
-    autocommit=False,
-)
+    engine: AsyncEngine = create_async_engine(
+        db_url,
+        **engine_kwargs,
+    )
+
+    # ─── Session Factory ──────────────────────────────────────────────
+    AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
+        bind=engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+        autocommit=False,
+    )
 
 
 # ─── Base Model ───────────────────────────────────────────────────

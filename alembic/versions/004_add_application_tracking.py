@@ -23,7 +23,7 @@ def upgrade() -> None:
     op.create_table(
         'application_tracking',
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('job_id', sa.Integer(), nullable=False),
+        sa.Column('job_id', sa.String(length=36), nullable=False),
         sa.Column('status', sa.String(length=50), nullable=False),
         sa.Column('status_updated_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('applied_at', sa.DateTime(timezone=True), nullable=True),
