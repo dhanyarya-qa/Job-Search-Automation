@@ -405,7 +405,7 @@ MIT License - Feel free to use for personal job hunting automation!
 **Dhany Arya Pratama**
 - Role: QA Engineer | Prompt Engineer | AI Automation
 - Skills: Playwright, Appium, Postman, API Testing, Selenium, Python, JavaScript
-- Email: dhanyarya095@gmail.com
+- Email: aryatama0409@gmail.com
 - GitHub: [@dhanyarya-qa](https://github.com/dhanyarya-qa)
 
 ---
