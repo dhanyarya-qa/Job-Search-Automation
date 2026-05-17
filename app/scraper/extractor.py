@@ -131,6 +131,9 @@ class JobExtractor:
         html_content: str = "",
         apply_link: str = "",
         apply_email: str = "",
+        job_type: str = "",
+        experience_level: str = "",
+        is_remote: bool = False,
     ) -> dict:
         """Build a complete structured job dictionary."""
         tech_stack = self.detect_tech_stack(html_content, description)
@@ -144,6 +147,18 @@ class JobExtractor:
         
         if not apply_link and html_content:
             apply_link = self.extract_apply_link(html_content, job_url) or ""
+        
+        # Auto-detect job type dari title/description jika tidak disediakan
+        if not job_type:
+            job_type = self._detect_job_type(job_title, description)
+        
+        # Auto-detect experience level jika tidak disediakan
+        if not experience_level:
+            experience_level = self._detect_experience_level(job_title, description)
+        
+        # Auto-detect remote jika belum diset
+        if not is_remote:
+            is_remote = self._detect_remote(job_title, description, location)
 
         return {
             "job_title": self.clean_text(job_title),
@@ -160,4 +175,51 @@ class JobExtractor:
             "scraped_at": scraped_at,
             "source_platform": source_platform,
             "job_category_prediction": "",  # Filled by AI engine
+            "job_type": job_type,
+            "experience_level": experience_level,
+            "is_remote": is_remote,
         }
+    
+    @staticmethod
+    def _detect_job_type(title: str, description: str) -> str:
+        """Auto-detect job type from title and description."""
+        combined = (title + " " + description).lower()
+        
+        if any(word in combined for word in ["contract", "kontrak", "freelance", "project based"]):
+            return "Contract"
+        elif any(word in combined for word in ["part time", "part-time", "paruh waktu"]):
+            return "Part-time"
+        elif any(word in combined for word in ["internship", "intern", "magang"]):
+            return "Internship"
+        elif any(word in combined for word in ["full time", "full-time", "permanent", "tetap"]):
+            return "Full-time"
+        
+        # Default
+        return "Full-time"
+    
+    @staticmethod
+    def _detect_experience_level(title: str, description: str) -> str:
+        """Auto-detect experience level from title and description."""
+        combined = (title + " " + description).lower()
+        
+        if any(word in combined for word in ["senior", "sr.", "lead", "principal", "staff"]):
+            return "Senior"
+        elif any(word in combined for word in ["junior", "jr.", "entry level", "fresh graduate", "freshgraduate"]):
+            return "Junior"
+        elif any(word in combined for word in ["mid", "middle", "intermediate", "experienced"]):
+            return "Mid-level"
+        
+        # Default
+        return "Mid-level"
+    
+    @staticmethod
+    def _detect_remote(title: str, description: str, location: str) -> bool:
+        """Auto-detect if job is remote."""
+        combined = (title + " " + description + " " + location).lower()
+        
+        remote_keywords = [
+            "remote", "work from home", "wfh", "anywhere", "distributed",
+            "kerja dari rumah", "jarak jauh"
+        ]
+        
+        return any(keyword in combined for keyword in remote_keywords)
