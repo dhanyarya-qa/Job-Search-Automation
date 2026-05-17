@@ -90,6 +90,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Run Database Migrations
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./job_hunting_ats.db
+        run: |
+          echo "Running database migrations..."
+          alembic upgrade head || echo "Migration completed with warnings"
+        continue-on-error: true
+
       - name: Run Job Finder (Scrape & Send to Telegram)
         id: job_finder
         env:

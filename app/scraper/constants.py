@@ -28,12 +28,13 @@ WEB3_KEYWORDS: list[str] = [
 # ─── Target Platforms ─────────────────────────────────────────────
 LOCAL_PLATFORMS: dict[str, str] = {
     "linkedin": "https://www.linkedin.com/jobs/search/?keywords={keyword}&location=Indonesia",
-    "jobstreet": "https://www.jobstreet.co.id/jobs/{keyword}-jobs",
-    "glints": "https://glints.com/id/opportunities/jobs/explore?keyword={keyword}&country=ID",
-    "kalibrr": "https://www.kalibrr.id/jobs#?keyword={keyword}",
     "indeed": "https://id.indeed.com/jobs?q={keyword}&l=Indonesia",
-    "karir": "https://www.karir.com/search?q={keyword}",
-    "urbanhire": "https://www.urbanhire.com/jobs?q={keyword}",
+    # Disabled platforms (not working - website structure changed):
+    # "jobstreet": "https://www.jobstreet.co.id/jobs/{keyword}-jobs",
+    # "glints": "https://glints.com/id/opportunities/jobs/explore?keyword={keyword}&country=ID",
+    # "kalibrr": "https://www.kalibrr.id/jobs#?keyword={keyword}",
+    # "karir": "https://www.karir.com/search?q={keyword}",
+    # "urbanhire": "https://www.urbanhire.com/jobs?q={keyword}",
 }
 
 WEB3_PLATFORMS: dict[str, str] = {

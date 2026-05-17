@@ -128,7 +128,7 @@ async def main():
     try:
         for keyword_idx, keyword in enumerate(keywords, 1):
             print(f"[{keyword_idx}/{len(keywords)}] Searching: {keyword}")
-            print(f"  Platforms: LinkedIn, JobStreet, Glints, Kalibrr, Indeed, Karir, Urbanhire")
+            print(f"  Platforms: LinkedIn, Indeed")
             
             try:
                 # Scrape this keyword from ALL platforms
